@@ -9,13 +9,14 @@ const { useState } = React;
 function App() {
 
   const [tiles,setTiles] = useState<any>([]);
-  const [robotConfig,setRobotConfig] = useState({x:0,y:0,background:doprava,facing:0,drawColor:"orange"});
+  const [robotConfig,setRobotConfig] = useState({x:0,y:9,background:doprava,facing:0,drawColor:"#ffa500"});
   const [tilesColor, setTilesColor] = useState<any>([]);
   const [commandsLog, setCommandsLog] = useState<any>([]);
   const [commandsToRun,setCommandsToRun] = useState<any>([]);
   
   const [commandsTextarea,setCommandsTextarea] = useState<string>();
   const textArea = useRef<any>();
+  const colorPicker = useRef<any>();
 
   const commonTileCSS = {
     width: "5vmin",
@@ -36,6 +37,10 @@ function App() {
     }
   },[tilesColor]);
 
+useEffect(() => {
+  colorPicker.current.value = robotConfig.drawColor;
+},[robotConfig]);
+
   useEffect(() => {
     let newColors:any = [];
     for(let y = 0; y < 10; y++) {
@@ -48,8 +53,9 @@ function App() {
     setTilesColor(newColors);
   },[]);
 
-  let runCommand = useCallback((command:"krok"|"otoč"|"vyplň"|"vymaž"|"reset") => {
-      switch (command) {
+  let runCommand = useCallback((command:string) => {
+    let parsedCommand = command.split(' ');
+      switch (parsedCommand[0]) {
         case "krok":
           switch (robotConfig.facing) {
             case 0:
@@ -78,7 +84,7 @@ function App() {
             break;
           }
         break;
-        case "otoč":
+        case "otoc":
           let angle = 0;
           setRobotConfig(config => {
             angle = config.facing === 270 ? 0 : config.facing + 90;
@@ -93,15 +99,19 @@ function App() {
           });
           setCommandsLog((log:any) =>{return [{name:command, value:angle},...log]});
         break;
-        case "vyplň":
+        case "vypln":
+          if(parsedCommand.length > 1) {
+            setRobotConfig(config => {return {...config,drawColor: parsedCommand[1]}});
+          }
+
           setTilesColor((tiles:any) => {
             let newArr = [...tiles];
-            newArr[robotConfig.y][robotConfig.x].color = robotConfig.drawColor;
+            newArr[robotConfig.y][robotConfig.x].color = parsedCommand.length > 1 ? parsedCommand[1] : robotConfig.drawColor;
             return newArr;
           });
           setCommandsLog((log:any) =>{return [{name:command, value:robotConfig.drawColor},...log]});
         break;
-        case "vymaž":
+        case "vymaz":
           setTilesColor((tiles:any) => {
             let newArr = [...tiles];
             newArr[robotConfig.y][robotConfig.x].color = "none";
@@ -119,7 +129,7 @@ function App() {
             newColors.push(xColors);
           }
           setTilesColor(newColors);
-          setRobotConfig({x:0,y:0,background:doprava,facing:0,drawColor:"orange"});
+          setRobotConfig({x:0,y:9,background:doprava,facing:0,drawColor:"#ffa500"});
           setCommandsLog([]);
         break;
       }
@@ -146,8 +156,12 @@ function App() {
       commands.forEach((command:any) => {
           let commandRepeats = command.split(' ');
           if(commandRepeats.length > 1) {
-            for(let i = 0; i < commandRepeats[1];i++) {
-              parsedCommands.push(commandRepeats[0]);
+            if(commandRepeats[0] !== "vypln") {
+              for(let i = 0; i < commandRepeats[1];i++) {
+                parsedCommands.push(commandRepeats[0]);
+              }
+            } else {
+              parsedCommands.push(command);
             }
           } else {
             parsedCommands.push(commandRepeats[0]);
@@ -189,9 +203,9 @@ function App() {
       </div>
       <div style={{display:"flex",flexDirection:"row"}}>
         <button onClick={()=>runCommand("krok")}>Krok</button>
-        <button onClick={()=>runCommand("otoč")}>Otoč</button>
-        <button onClick={()=>runCommand("vyplň")}>Vyplň</button>
-        <button onClick={()=>runCommand("vymaž")}>Vymaž</button>
+        <button onClick={()=>runCommand("otoc")}>Otoč</button>
+        <button onClick={()=>runCommand("vypln")}>Vyplň</button>
+        <button onClick={()=>runCommand("vymaz")}>Vymaž</button>
         <button onClick={()=>runCommand("reset")}>Reset</button>
       </div>
       <div style={{display:"grid"}}>
@@ -228,7 +242,7 @@ function App() {
         right:0,
         fontSize:"calc(1vmin+5px)"
         }}>
-          <input type="color" defaultValue={"#ffa500"} onChange={(e)=>setRobotConfig(config => {return {...config,drawColor: e.target.value}})}/>
+          <input ref={colorPicker} type="color" defaultValue={"#ffa500"} onChange={(e)=>setRobotConfig(config => {return {...config,drawColor: e.target.value}})}/>
       </div>
       </header>
     </div>
