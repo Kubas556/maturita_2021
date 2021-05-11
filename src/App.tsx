@@ -9,16 +9,17 @@ const { useState } = React;
 function App() {
 
   const [tiles,setTiles] = useState<any>([]);
-  const [robotConfig,setRobotConfig] = useState({x:0,y:0,background:doprava,facing:0});
+  const [robotConfig,setRobotConfig] = useState({x:0,y:0,background:doprava,facing:0,drawColor:"orange"});
   const [tilesColor, setTilesColor] = useState<any>([]);
   const [commandsLog, setCommandsLog] = useState<any>([]);
+  const [commandsToRun,setCommandsToRun] = useState<any>([]);
   
   const [commandsTextarea,setCommandsTextarea] = useState<string>();
   const textArea = useRef<any>();
 
   const commonTileCSS = {
-    width: "5rem",
-    height: "5rem",
+    width: "5vmin",
+    height: "5vmin",
     border: "1px solid white"
   }
 
@@ -47,7 +48,7 @@ function App() {
     setTilesColor(newColors);
   },[]);
 
-  let runCommand = (command:"krok"|"otoč"|"vyplň"|"vymaž"|"reset") => {
+  let runCommand = useCallback((command:"krok"|"otoč"|"vyplň"|"vymaž"|"reset") => {
       switch (command) {
         case "krok":
           switch (robotConfig.facing) {
@@ -95,10 +96,10 @@ function App() {
         case "vyplň":
           setTilesColor((tiles:any) => {
             let newArr = [...tiles];
-            newArr[robotConfig.y][robotConfig.x].color = "orange";
+            newArr[robotConfig.y][robotConfig.x].color = robotConfig.drawColor;
             return newArr;
           });
-          setCommandsLog((log:any) =>{return [{name:command, value:"orange"},...log]});
+          setCommandsLog((log:any) =>{return [{name:command, value:robotConfig.drawColor},...log]});
         break;
         case "vymaž":
           setTilesColor((tiles:any) => {
@@ -118,25 +119,42 @@ function App() {
             newColors.push(xColors);
           }
           setTilesColor(newColors);
-          setRobotConfig({x:0,y:0,background:doprava,facing:0});
+          setRobotConfig({x:0,y:0,background:doprava,facing:0,drawColor:"orange"});
           setCommandsLog([]);
         break;
       }
-  };
+  },[robotConfig]);
+
+  useEffect(() => {
+    if(commandsToRun.length === 0)
+    return;
+
+    const id = setTimeout(() => {
+      let copy = [...commandsToRun];
+      //@ts-ignore
+      runCommand(copy.pop());
+      setCommandsToRun(copy);
+    },100);
+
+    return () => clearTimeout(id);
+  },[commandsToRun]);
 
   let runCommands = useCallback(() => {
       let commands:any = commandsTextarea?.trim()?.split("\n");
       commands = commands?.map((command:any) => command.toLowerCase());
-      let error = false;
-      commands.map((command:any,index:number) => {
-        if(["krok","otoč","vyplň","vymaž","reset"].includes(command) && !error) {
-          setTimeout(() => runCommand(command),1000*index);
-        } else {
-          error = true;
-          setCommandsLog((log:any) =>{return [{name:"ERROR", value:command},...log]});
-        }
+      let parsedCommands:any = [];
+      commands.forEach((command:any) => {
+          let commandRepeats = command.split(' ');
+          if(commandRepeats.length > 1) {
+            for(let i = 0; i < commandRepeats[1];i++) {
+              parsedCommands.push(commandRepeats[0]);
+            }
+          } else {
+            parsedCommands.push(commandRepeats[0]);
+          }
       });
-  },[commandsTextarea,runCommand,robotConfig])
+      setCommandsToRun(parsedCommands.reverse());
+  },[commandsTextarea])
 
   function download() {
     var a = document.createElement("a");
@@ -161,13 +179,13 @@ function App() {
             ipcRenderer.invoke('perform-action');
           }}>exit</button>
         }
-              <div style={{display:"grid"}}>
-          {
-            tiles.map((tile:any) => {
-              return tile;
-            })
-          }
-          <img src={robotConfig.background} style={{gridColumn:robotConfig.x+1,gridRow:robotConfig.y+1,...commonTileCSS}}></img>
+      <div style={{display:"grid"}}>
+        {
+          tiles.map((tile:any) => {
+            return tile;
+          })
+        }
+        <img src={robotConfig.background} style={{gridColumn:robotConfig.x+1,gridRow:robotConfig.y+1,...commonTileCSS}}></img>
       </div>
       <div style={{display:"flex",flexDirection:"row"}}>
         <button onClick={()=>runCommand("krok")}>Krok</button>
@@ -189,19 +207,28 @@ function App() {
       </div>
       <div style={{
         display:"flex",
-        width:"10rem",
+        width:"calc(10vmin+10px)",
         height:"30rem",
         position:"absolute",
         left:0,
         flexDirection:"column",
         overflowY:"scroll",
-        fontSize:"1rem"
+        fontSize:"calc(1vmin+5px)"
         }}>
           {
             commandsLog.map((command:any,index:number) => {
               return <div key={index}>{command.name}|{command.value}</div>
             })
           }
+      </div>
+      <div style={{
+        display:"flex",
+        width:"calc(10vmin+10px)",
+        position:"absolute",
+        right:0,
+        fontSize:"calc(1vmin+5px)"
+        }}>
+          <input type="color" defaultValue={"#ffa500"} onChange={(e)=>setRobotConfig(config => {return {...config,drawColor: e.target.value}})}/>
       </div>
       </header>
     </div>
